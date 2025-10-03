@@ -6,7 +6,11 @@ The system features a **Streamlit** frontend for dynamic user interaction and a 
 
 ## 🖥️ Demo
 
-![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Chatbot/Assets/Screenshot%20(2).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Advance_RAG_bot/assets/Screenshot%20(333).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Advance_RAG_bot/assets/Screenshot%20(334).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Advance_RAG_bot/assets/Screenshot%20(335).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Advance_RAG_bot/assets/Screenshot%20(336).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Advance_RAG_bot/assets/Screenshot%20(337).png)  
 
 ---
 
@@ -265,3 +269,4 @@ Contributions are welcome! Please feel free to submit a pull request or open an 
 
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
