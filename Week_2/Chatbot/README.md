@@ -30,10 +30,10 @@ An interactive **Streamlit-based AI Assistant** that combines **Gemini 2.0 Flash
 
 ## 🖥️ Demo
 
-![App Demo Screenshot](assets/screenshot2.png)  
-![App Demo Screenshot](assets/screenshot3.png)  
-![App Demo Screenshot](assets/screenshot4.png) 
-![App Demo Screenshot](assets/screenshot5.png) 
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Chatbot/Assets/Screenshot%20(2).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Chatbot/Assets/Screenshot%20(3).png)  
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Chatbot/Assets/Screenshot%20(4).png) 
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Chatbot/Assets/Screenshot%20(5).png) 
 
 ---
 
@@ -45,8 +45,8 @@ An interactive **Streamlit-based AI Assistant** that combines **Gemini 2.0 Flash
    cd ai-assistant-suite
 
 2. **Install dependencies**
+   ```
    pip install -r requirements.txt
-
 
 ## Project Structure
 
@@ -68,4 +68,5 @@ chatbot/
 | Current Info | Built-in         | Via Web Search |
 | Speed        | Fast             | Fastest        |
 | Specialty    | All-rounder      | Real-time Info |
+
 
