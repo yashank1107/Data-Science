@@ -4,8 +4,9 @@ Welcome to the Enhanced Multi-modal RAG Chatbot, a sophisticated, full-stack app
 
 The system features a **Streamlit** frontend for dynamic user interaction and a robust **FastAPI** backend that orchestrates LLM calls, document processing, and state management.
 
-![Project Demo GIF](https://path.to/your/demo.gif)
-*(Suggestion: Add a GIF or screenshot of your application in action here.)*
+## 🖥️ Demo
+
+![App Demo Screenshot](https://github.com/yashank1107/Data-Science/blob/main/Week_2/Chatbot/Assets/Screenshot%20(2).png)  
 
 ---
 
@@ -261,5 +262,6 @@ Final_project/
 Contributions are welcome! Please feel free to submit a pull request or open an issue for any bugs or feature requests.
 
 ## License
+
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
