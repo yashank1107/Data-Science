@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 import os
 import json
 import logging
-from config import settings
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -112,4 +112,5 @@ class RAGFactory:
                 return BaseRAG()
             return HybridRAG(search_service)
         else:
+
             return BaseRAG()
