@@ -6,7 +6,7 @@ import requests
 from typing import List, Optional, Dict, Any
 import os
 import logging
-from config import settings
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -247,4 +247,5 @@ class InternetSearchService:
             return []
         except Exception as e:
             logger.error(f"Unexpected error in internet search: {e}")
+
             return []
