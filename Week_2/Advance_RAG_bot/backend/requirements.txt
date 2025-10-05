@@ -6,7 +6,7 @@ google-generativeai==0.3.0
 groq==0.9.0
 cohere==4.56.0
 requests==2.31.0
-pillow==9.5.0
+pillow
 sentence-transformers==2.2.2
 faiss-cpu==1.7.4
 pypdf==3.17.0
@@ -18,3 +18,4 @@ transformers==4.35.2
 torch==2.1.0
 python-dotenv==1.0.0
 pytesseract==0.3.10
+
