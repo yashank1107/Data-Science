@@ -8,7 +8,7 @@ from PIL import Image
 import io
 import base64
 from ..config import settings
-from .models.models import DocumentInfo, DocumentType
+from ..models.models import DocumentInfo, DocumentType
 
 class DocumentProcessor:
     def __init__(self):
@@ -135,3 +135,4 @@ class DocumentProcessor:
             del self.document_content[document_id]
 
         return True
+
