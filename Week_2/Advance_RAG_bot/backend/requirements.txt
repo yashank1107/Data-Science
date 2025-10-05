@@ -19,6 +19,8 @@ transformers==4.35.2
 torch
 python-dotenv==1.0.0
 pytesseract==0.3.10
+PyPDF2
+
 
 
 
