@@ -13,12 +13,12 @@ import opentelemetry
 import logging
 import traceback
 
-from models.models import ChatMessage, ChatResponse, ConfigUpdate, RAGVariant, UploadResponse, DocumentInfo, LLMProvider, DocumentType, MemoryMessage
-from services.llm_service import LLMService, InternetSearchService
-from services.rag_service import RAGFactory
-from services.guardrails import EnhancedGuardrailsService
-from services.memory import ConversationMemory
-from services.document_processor import DocumentProcessor
+from .models.models import ChatMessage, ChatResponse, ConfigUpdate, RAGVariant, UploadResponse, DocumentInfo, LLMProvider, DocumentType, MemoryMessage
+from .services.llm_service import LLMService, InternetSearchService
+from .services.rag_service import RAGFactory
+from .services.guardrails import EnhancedGuardrailsService
+from .services.memory import ConversationMemory
+from .services.document_processor import DocumentProcessor
 from config import settings
 
 # Configure logging
@@ -247,4 +247,5 @@ async def clear_memory(session_id: str):
     return {"status": "memory cleared"}
 
 if __name__ == "__main__":
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
