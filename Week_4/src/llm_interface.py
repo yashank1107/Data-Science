@@ -250,14 +250,31 @@ class AzureOpenAILLM(BaseLLM):
 
 class LLMManager:
     """Manages multiple cloud LLM backends with fallback."""
-    def __init__(self):
+    def __init__(self, provider=None, model_name=None):
         self.groq = GroqLLM()
         self.gemini = GeminiLLM()
         self.azure_openai = AzureOpenAILLM()
-        self.active_llm = self._select_active_llm()
     
     def _select_active_llm(self):
-        # Priority: Groq > Gemini > Azure OpenAI
+        # If specific provider requested, use that
+        if self.provider:
+            if self.provider.lower() == "groq" and self.groq.is_available():
+                logger.info(f"Using requested Groq LLM: {self.model_name}")
+                if self.model_name:
+                    self.groq.model = self.model_name
+                return self.groq
+            elif self.provider.lower() == "gemini" and self.gemini.is_available():
+                logger.info(f"Using requested Gemini LLM: {self.model_name}")
+                if self.model_name:
+                    self.gemini.model = self.model_name
+                return self.gemini
+            elif self.provider.lower() == "azure_openai" and self.azure_openai.is_available():
+                logger.info(f"Using requested Azure OpenAI LLM: {self.model_name}")
+                if self.model_name:
+                    self.azure_openai.model = self.model_name
+                return self.azure_openai
+        
+        # Fallback to priority: Groq > Gemini > Azure OpenAI
         for llm in [self.groq, self.gemini, self.azure_openai]:
             if llm.is_available():
                 logger.info(f"Using {llm.__class__.__name__} as primary LLM")
