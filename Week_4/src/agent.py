@@ -410,13 +410,16 @@ class SkillAssessmentAgent:
 
 # Factory function to create agent with all dependencies
 def create_agent(
-    initialize_sample_data: bool = True, serper_enabled: bool = False
+    initialize_sample_data: bool = True, 
+    serper_enabled: bool = False,
+    llm_config: Optional[Dict] = None  # Add this parameter
 ) -> SkillAssessmentAgent:
     """
     Factory function to create a fully initialized agent.
     
     Args:
         initialize_sample_data: Whether to add sample data to vector store
+        llm_config: Optional LLM configuration for specific provider
     
     Returns:
         Initialized SkillAssessmentAgent
@@ -424,9 +427,43 @@ def create_agent(
     logger.info("Creating Skill Assessment Agent...")
     
     try:
-        # Initialize LLM
-        llm_manager = LLMManager()
-        logger.info(f"LLM: {llm_manager.get_active_model()}")
+        # Initialize LLM - SIMPLIFIED VERSION
+        from src.llm_interface import GroqLLM, GeminiLLM, AzureOpenAILLM
+        
+        if llm_config:
+            provider_type = llm_config.get('type', '').lower()
+            model_name = llm_config.get('model', '')
+            
+            if provider_type == 'groq':
+                llm_instance = GroqLLM(
+                    api_key=llm_config.get('api_key'),
+                    model=model_name
+                )
+                logger.info(f"Using GroqLLM with model: {model_name}")
+            elif provider_type == 'gemini':
+                llm_instance = GeminiLLM(
+                    api_key=llm_config.get('api_key'),
+                    model=model_name
+                )
+                logger.info(f"Using GeminiLLM with model: {model_name}")
+            elif provider_type == 'azure_openai':
+                llm_instance = AzureOpenAILLM(
+                    api_key=llm_config.get('api_key'),
+                    endpoint=llm_config.get('endpoint'),
+                    model=model_name,
+                    api_version=llm_config.get('api_version')
+                )
+                logger.info(f"Using AzureOpenAILLM with model: {model_name}")
+            else:
+                # Fallback to default
+                from src.llm_interface import LLMManager
+                llm_instance = LLMManager()
+                logger.info(f"Using default LLMManager: {llm_instance.get_active_model()}")
+        else:
+            # Use default LLMManager without provider selection
+            from src.llm_interface import LLMManager
+            llm_instance = LLMManager()
+            logger.info(f"Using default LLMManager: {llm_instance.get_active_model()}")
         
         # Initialize Vector Store with USE
         from src.vector_store_use import initialize_sample_data as init_sample_data
@@ -445,7 +482,7 @@ def create_agent(
         
         # Create agent
         agent = SkillAssessmentAgent(
-            llm_manager=llm_manager,
+            llm_manager=llm_instance,  # Use the specific LLM instance
             vector_store=vector_store,
             web_tools=web_tools,
             safety_monitor=safety_monitor
