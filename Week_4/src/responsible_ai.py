@@ -25,15 +25,40 @@ class ToxicityDetector:
         
         try:
             logger.info("Loading toxicity detection model...")
-            # Import detoxify with error handling
+            
+            # Check if we should even attempt to load Detoxify
+            import torch
+            if hasattr(torch, 'has_mps') and torch.has_mps:
+                # On Apple Silicon (MPS), Detoxify often has compatibility issues
+                logger.warning("Detoxify disabled on MPS devices due to known compatibility issues")
+                return
+            
+            # Try to load Detoxify with comprehensive error handling
             try:
                 from detoxify import Detoxify
-                self.model = Detoxify('original')
-                logger.info("✓ Toxicity detector initialized")
+                
+                # Try to load with explicit device handling
+                try:
+                    # Force CPU to avoid MPS/GPU issues
+                    self.model = Detoxify('original', device='cpu')
+                    logger.info("✓ Toxicity detector initialized on CPU")
+                except Exception as device_error:
+                    logger.warning(f"Device-specific Detoxify error: {device_error}")
+                    # Try without device specification
+                    self.model = Detoxify('original')
+                    logger.info("✓ Toxicity detector initialized (fallback)")
+                    
             except ImportError:
                 logger.warning("Detoxify not available, using fallback toxicity detection")
             except Exception as e:
-                logger.warning(f"Failed to load Detoxify: {e}, using fallback")
+                error_msg = str(e)
+                if "meta tensor" in error_msg.lower() or "no data" in error_msg.lower():
+                    logger.warning("Detoxify failed due to PyTorch meta tensor issue. This is a known compatibility problem.")
+                elif "cuda" in error_msg.lower():
+                    logger.warning("Detoxify CUDA error, falling back to CPU-based detection")
+                else:
+                    logger.warning(f"Failed to load Detoxify: {error_msg}, using fallback")
+                    
         except Exception as e:
             logger.error(f"Toxicity detector initialization error: {e}")
     
@@ -56,34 +81,39 @@ class ToxicityDetector:
             }
         
         try:
-            # Use detoxify if available, otherwise use fallback
+            # Use detoxify if available and working, otherwise use fallback
             if self.model:
-                with Timer("Toxicity detection"):
-                    scores = self.model.predict(text)
-                
-                # Find maximum score and triggered categories
-                max_score = max(scores.values())
-                triggered = [
-                    category for category, score in scores.items()
-                    if score > self.threshold
-                ]
-                
-                is_safe = max_score <= self.threshold
-                
-                result = {
-                    "safe": is_safe,
-                    "scores": {k: float(v) for k, v in scores.items()},
-                    "max_score": float(max_score),
-                    "triggered_categories": triggered
-                }
-                
-                if not is_safe:
-                    logger.warning(f"Toxicity detected: {triggered} (max={max_score:.3f})")
-                
-                return result
-            else:
-                # Fallback: simple keyword-based toxicity detection
-                return self._fallback_toxicity_check(text)
+                try:
+                    with Timer("Toxicity detection"):
+                        scores = self.model.predict(text)
+                    
+                    # Find maximum score and triggered categories
+                    max_score = max(scores.values())
+                    triggered = [
+                        category for category, score in scores.items()
+                        if score > self.threshold
+                    ]
+                    
+                    is_safe = max_score <= self.threshold
+                    
+                    result = {
+                        "safe": is_safe,
+                        "scores": {k: float(v) for k, v in scores.items()},
+                        "max_score": float(max_score),
+                        "triggered_categories": triggered,
+                        "detector": "detoxify"
+                    }
+                    
+                    if not is_safe:
+                        logger.warning(f"Toxicity detected: {triggered} (max={max_score:.3f})")
+                    
+                    return result
+                except Exception as model_error:
+                    logger.warning(f"Detoxify model error during prediction: {model_error}, using fallback")
+                    # Fall through to fallback detection
+            
+            # Fallback: simple keyword-based toxicity detection
+            return self._fallback_toxicity_check(text)
         
         except Exception as e:
             logger.error(f"Toxicity detection error: {str(e)}")
@@ -92,20 +122,33 @@ class ToxicityDetector:
     
     def _fallback_toxicity_check(self, text: str) -> Dict[str, Any]:
         """Fallback toxicity check using keyword matching."""
+        # Expanded list of toxic keywords
         toxic_keywords = [
+            # Profanity
             'idiot', 'stupid', 'moron', 'retard', 'dumbass', 'asshole',
-            'bastard', 'bitch', 'damn', 'hell', 'fuck', 'shit', 'crap'
+            'bastard', 'bitch', 'damn', 'hell', 'fuck', 'shit', 'crap',
+            'piss', 'dick', 'cock', 'pussy', 'whore', 'slut',
+            # Harassment
+            'kill yourself', 'you should die', 'i hate you', 'worthless',
+            'useless', 'pathetic', 'disgusting', 'ugly', 'fat', 'stupid',
+            # Hate speech indicators
+            'all women are', 'all men are', 'people like you', 'your kind',
+            'racial slur', 'retarded', 'gay slur'
         ]
         
         text_lower = text.lower()
         found_toxic = [word for word in toxic_keywords if word in text_lower]
         
+        # Calculate a simple score based on number of matches
+        severity_score = min(1.0, len(found_toxic) * 0.2)  # Cap at 1.0
+        
         result = {
             "safe": len(found_toxic) == 0,
-            "scores": {},
-            "max_score": 1.0 if found_toxic else 0.0,
+            "scores": {"toxicity": severity_score},
+            "max_score": severity_score,
             "triggered_categories": found_toxic,
-            "note": "Using fallback keyword detection"
+            "detector": "keyword_fallback",
+            "note": "Using keyword-based fallback detection"
         }
         
         if found_toxic:
