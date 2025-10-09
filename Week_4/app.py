@@ -188,15 +188,8 @@ st.markdown("""
         background: linear-gradient(135deg, #0078d4 0%, #00bcf2 100%);
     }
     .stat-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        text-align: center;
-        margin: 0.5rem 0;
     }
-    .model-info-card {
-        
+    .model-info-card {    
     }
 </style>
 """, unsafe_allow_html=True)
@@ -316,7 +309,11 @@ def initialize_agent_with_model(provider, model_name, serper_enabled=False):
             }
         
         # Initialize with safety fallbacks
-        agent = create_agent(initialize_sample_data=True, serper_enabled=serper_enabled)
+        agent = create_agent(
+            initialize_sample_data=True, 
+            serper_enabled=serper_enabled,
+            llm_config=llm_config  # Pass the LLM configuration
+        )
         return agent, None
     except Exception as e:
         error_msg = f"Agent initialization error: {str(e)}"
@@ -326,11 +323,21 @@ def initialize_agent_with_model(provider, model_name, serper_enabled=False):
         if "meta tensor" in str(e).lower() or "detoxify" in str(e).lower():
             error_msg += "\n\nToxicity detection model failed to load. The app will continue with basic safety checks."
             # Create a minimal agent without safety features
-            from src.llm_interface import LLMManager
+            from src.llm_interface import GroqLLM, GeminiLLM, AzureOpenAILLM
             from src.vector_store_use import USEVectorStore
-            llm_manager = LLMManager()
+            
+            # Create appropriate LLM based on provider
+            if provider == "Groq":
+                llm_instance = GroqLLM(model=model_name)
+            elif provider == "Gemini":
+                llm_instance = GeminiLLM(model=model_name)
+            elif provider == "Azure OpenAI":
+                llm_instance = AzureOpenAILLM(model=model_name)
+            else:
+                llm_instance = GroqLLM()  # fallback
+            
             vector_store = USEVectorStore()
-            return MinimalAgent(llm_manager, vector_store), error_msg
+            return MinimalAgent(llm_instance, vector_store), error_msg
         else:
             return None, error_msg
 
@@ -338,8 +345,8 @@ def initialize_agent_with_model(provider, model_name, serper_enabled=False):
 class MinimalAgent:
     """Minimal agent for fallback when full agent fails."""
     
-    def __init__(self, llm_manager, vector_store):
-        self.llm = llm_manager
+    def __init__(self, llm_instance, vector_store):
+        self.llm = llm_instance
         self.vector_store = vector_store
     
     def run(self, query: str):
@@ -390,17 +397,36 @@ Keep it educational and helpful."""
             }
 
 def generate_direct_llm_response(provider, model_name, prompt, system_prompt=None):
-    """Generate response directly from LLM without agent workflow."""
+    """Generate response directly from LLM with proper provider selection."""
     try:
-        from src.llm_interface import LLMManager
-        llm_manager = LLMManager()
+        from src.llm_interface import GroqLLM, GeminiLLM, AzureOpenAILLM
         
-        response = llm_manager.generate(
+        # Select the specific LLM based on provider
+        if provider == "Groq":
+            llm = GroqLLM(model=model_name)
+        elif provider == "Gemini":
+            llm = GeminiLLM(model=model_name)
+        elif provider == "Azure OpenAI":
+            llm = AzureOpenAILLM(model=model_name)
+        else:
+            # Fallback to Groq
+            llm = GroqLLM()
+        
+        # Check if the selected LLM is available
+        if not hasattr(llm, 'is_available') or not llm.is_available():
+            return None, f"{provider} is not available. Please check API configuration."
+        
+        response = llm.generate(
             prompt=prompt,
             system_prompt=system_prompt or config.SYSTEM_PROMPT
         )
         
+        # Log which model was actually used
+        actual_model = getattr(llm, 'model', 'unknown')
+        logger.info(f"Generated response using {provider} - {actual_model}")
+        
         return response, None
+        
     except Exception as e:
         error_msg = f"LLM generation error: {str(e)}"
         logger.error(error_msg)
@@ -672,41 +698,65 @@ def calculate_time_per_question(num_questions, level):
 
 
 def generate_pdf_report(report_data, student_name):
-    """Generate PDF report (placeholder - requires reportlab)."""
-    try:    
+    """Generate PDF report with comprehensive error handling."""
+    try:
+        logger.info(f"Generating PDF report for {student_name}")
+        
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
-        elements = []
-        styles = getSampleStyleSheet()
         
-        # Title
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#667eea'),
-            spaceAfter=30,
-            alignment=TA_CENTER
-        )
-        elements.append(Paragraph(f"Skill Assessment Report", title_style))
-        elements.append(Paragraph(f"<b>Student:</b> {student_name}", styles['Normal']))
-        elements.append(Paragraph(f"<b>Date:</b> {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Add report content
-        if 'score' in report_data:
-            elements.append(Paragraph(f"<b>Score:</b> {report_data['score']}%", styles['Heading2']))
-        
-        if 'summary' in report_data:
-            elements.append(Paragraph("<b>Summary:</b>", styles['Heading3']))
-            elements.append(Paragraph(report_data['summary'], styles['Normal']))
-            elements.append(Spacer(1, 0.2*inch))
-        
-        doc.build(elements)
-        buffer.seek(0)
-        return buffer
-    except ImportError:
+        try:
+            # Try to create PDF with reportlab
+            doc = SimpleDocTemplate(buffer, pagesize=letter)
+            elements = []
+            styles = getSampleStyleSheet()
+            
+            # Title
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=24,
+                textColor=colors.HexColor('#667eea'),
+                spaceAfter=30,
+                alignment=TA_CENTER
+            )
+            elements.append(Paragraph(f"Skill Assessment Report", title_style))
+            elements.append(Paragraph(f"<b>Student:</b> {student_name}", styles['Normal']))
+            elements.append(Paragraph(f"<b>Date:</b> {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
+            elements.append(Spacer(1, 0.3*inch))
+            
+            # Add report content
+            if 'score' in report_data:
+                elements.append(Paragraph(f"<b>Score:</b> {report_data['score']}%", styles['Heading2']))
+            
+            if 'summary' in report_data:
+                elements.append(Paragraph("<b>Summary:</b>", styles['Heading3']))
+                elements.append(Paragraph(report_data['summary'], styles['Normal']))
+                elements.append(Spacer(1, 0.2*inch))
+            
+            # Add detailed results if available
+            if 'correct' in report_data and 'total' in report_data:
+                elements.append(Paragraph("<b>Detailed Results:</b>", styles['Heading3']))
+                elements.append(Paragraph(f"Correct Answers: {report_data['correct']}/{report_data['total']}", styles['Normal']))
+                elements.append(Paragraph(f"Accuracy: {(report_data['correct']/report_data['total'])*100:.1f}%", styles['Normal']))
+            
+            doc.build(elements)
+            buffer.seek(0)
+            logger.info("PDF report generated successfully")
+            return buffer
+            
+        except ImportError as e:
+            logger.warning(f"ReportLab import error: {e}, using text fallback")
+            # Fall through to text report
+            raise ImportError("ReportLab not available")
+            
+    except (ImportError, Exception) as e:
+        logger.warning(f"PDF generation failed, using text fallback: {e}")
         # Fallback to text report
+        return generate_text_report(report_data, student_name)
+
+def generate_text_report(report_data, student_name):
+    """Generate text-based report as fallback."""
+    try:
         buffer = BytesIO()
         report_text = f"""
 SKILL ASSESSMENT REPORT
@@ -715,11 +765,31 @@ SKILL ASSESSMENT REPORT
 Student: {student_name}
 Date: {datetime.now().strftime('%B %d, %Y')}
 
-{report_data.get('summary', 'Assessment completed.')}
-
-Score: {report_data.get('score', 'N/A')}%
 """
+        
+        if 'score' in report_data:
+            report_text += f"Score: {report_data['score']}%\n\n"
+        
+        if 'summary' in report_data:
+            report_text += f"Summary:\n{report_data['summary']}\n\n"
+        
+        if 'correct' in report_data and 'total' in report_data:
+            report_text += f"Detailed Results:\n"
+            report_text += f"Correct Answers: {report_data['correct']}/{report_data['total']}\n"
+            report_text += f"Accuracy: {(report_data['correct']/report_data['total'])*100:.1f}%\n"
+        
+        report_text += f"\nGenerated by AI Skill Assessment Hub"
+        
         buffer.write(report_text.encode('utf-8'))
+        buffer.seek(0)
+        logger.info("Text report generated as fallback")
+        return buffer
+        
+    except Exception as e:
+        logger.error(f"Text report generation failed: {e}")
+        # Ultimate fallback
+        buffer = BytesIO()
+        buffer.write(b"Error generating report. Please try again.")
         buffer.seek(0)
         return buffer
 
@@ -1145,28 +1215,67 @@ def display_test_results():
         st.markdown(f'<div class="recommendation-box">{i}. {rec}</div>', unsafe_allow_html=True)
     
     # PDF Download with name input
+        # PDF Download with name input
     st.markdown("---")
     st.subheader("📄 Download Report")
     
     student_name = st.text_input("Enter your name for the report:", key="test_report_name")
     
     if student_name:
-        if st.button("📥 Generate PDF Report", type="primary", use_container_width=True):
-            report_data = {
-                'score': score_percentage,
-                'correct': correct,
-                'total': total,
-                'summary': f"Test on {st.session_state.test_topic} ({st.session_state.test_level} level). Score: {correct}/{total} ({score_percentage:.1f}%)"
-            }
-            
-            pdf_buffer = generate_pdf_report(report_data, student_name)
-            
-            st.download_button(
-                label="📥 Download Report PDF",
-                data=pdf_buffer,
-                file_name=f"skill_test_report_{student_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf"
-            )
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📥 Generate PDF Report", type="primary", use_container_width=True):
+                with st.spinner("📄 Generating your report..."):
+                    try:
+                        report_data = {
+                            'score': score_percentage,
+                            'correct': correct,
+                            'total': total,
+                            'summary': f"Test on {st.session_state.test_topic} ({st.session_state.test_level} level). Score: {correct}/{total} ({score_percentage:.1f}%)"
+                        }
+                        
+                        pdf_buffer = generate_pdf_report(report_data, student_name)
+                        
+                        # Create download button
+                        st.download_button(
+                            label="📥 Download Report PDF",
+                            data=pdf_buffer,
+                            file_name=f"skill_test_report_{student_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+                        st.success("✅ Report generated successfully! Click the download button above.")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Failed to generate report: {str(e)}")
+                        logger.error(f"Report generation error: {str(e)}")
+        
+        with col2:
+            # Also provide text download option
+            if st.button("📝 Generate Text Report", use_container_width=True):
+                with st.spinner("📝 Generating text report..."):
+                    try:
+                        report_data = {
+                            'score': score_percentage,
+                            'correct': correct,
+                            'total': total,
+                            'summary': f"Test on {st.session_state.test_topic} ({st.session_state.test_level} level). Score: {correct}/{total} ({score_percentage:.1f}%)"
+                        }
+                        
+                        text_buffer = generate_text_report(report_data, student_name)
+                        
+                        st.download_button(
+                            label="📝 Download Text Report",
+                            data=text_buffer,
+                            file_name=f"skill_test_report_{student_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain",
+                            use_container_width=True
+                        )
+                        st.success("✅ Text report generated successfully!")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Failed to generate text report: {str(e)}")
     
     # Restart test button
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -1528,6 +1637,11 @@ def main():
     
     # Get available models
     available_models = get_available_models()
+    
+    # Debug logging
+    provider = st.session_state.get('selected_provider', 'Groq')
+    model_name = st.session_state.get('selected_model', 'llama-3.1-8b-instant')
+    logger.info(f"USER SELECTED - Provider: {provider}, Model: {model_name}")
     
     if not available_models:
         st.error("❌ No LLM providers configured!")
